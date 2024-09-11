@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo de Plataformas</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background-color: #87CEEB;
+        }
+        canvas {
+            display: block;
+            background-color: #008000;
+        }
+        #level-select {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="level-select">
+        <label for="levels">Selecione o nível: </label>
+        <select id="levels">
+            <option value="1">Fase 1</option>
+            <option value="2">Fase 2</option>
+            <option value="3">Fase 3</option>
+        </select>
+        <button onclick="startGame()">Iniciar Jogo</button>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        let player, platforms, level, gameInterval, keys, iceWall;
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        class Player {
+            constructor() {
+                this.width = 40;
+                this.height = 60;
+                this.x = 50;
+                this.y = canvas.height - this.height - 20;
+                this.dy = 0;
+                this.dx = 0;
+                this.color = 'blue';
+                this.jumping = false;
+                this.speed = 5;
+                this.jumpPower = -30; // Força do salto duplicada
+            }
+
+            draw() {
+                // Corpo
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                // Cabeça
+                ctx.fillStyle = 'peachpuff';
+                ctx.beginPath();
+                ctx.arc(this.x + this.width / 2, this.y - 10, 10, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Braços
+                ctx.fillStyle = 'blue';
+                ctx.fillRect(this.x - 10, this.y + 10, 10, 40); // Braço esquerdo
+                ctx.fillRect(this.x + this.width, this.y + 10, 10, 40); // Braço direito
+                
+                // Pernas
+                ctx.fillStyle = 'blue';
+                ctx.fillRect(this.x + 10, this.y + this.height, 15, 30); // Perna esquerda
+                ctx.fillRect(this.x + this.width - 25, this.y + this.height, 15, 30); // Perna direita
+            }
+
+            jump() {
+                if (!this.jumping) {
+                    this.dy = this.jumpPower; // Aumenta a força do salto
+                    this.jumping = true;
+                }
+            }
+
+            update() {
+                this.dy += gravity;
+                this.y += this.dy;
+                this.x += this.dx;
+
+                // Colisão com plataformas
+                for (let platform of platforms) {
+                    if (this.x + this.width > platform.x && this.x < platform.x + platform.width &&
+                        this.y + this.height > platform.y && this.y + this.height < platform.y + platform.height &&
+                        this.dy > 0) {
+                        this.y = platform.y - this.height;
+                        this.dy = 0;
+                        this.jumping = false;
+                    }
+                }
+
+                // Colisão com o chão
+                if (this.y + this.height > canvas.height - 20) {
+                    this.y = canvas.height - this.height - 20;
+                    this.dy = 0;
+                    this.jumping = false;
+                }
+
+                // Verifica se o jogador alcançou o final da fase
+                if (this.x > canvas.width - 100) {
+                    if (level < 3) {
+                        level++;
+                        startGame();
+                    } else {
+                        alert("Parabéns! Você completou todas as fases.");
+                        resetGame();
+                    }
+                    return;
+                }
+
+                this.draw();
+            }
+        }
+
+        class Platform {
+            constructor(x, y, width, height) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.color = 'gray';
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+            }
+        }
+
+        class IceWall {
+            constructor(x, y, width, height) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.color = 'lightblue';
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                ctx.fillStyle = 'white';
+                ctx.fillRect(this.x + this.width / 2 - 10, this.y - 30, 20, 30); // Detalhes de gelo
+            }
+        }
+
+        function startGame() {
+            resetGame();
+
+            level = parseInt(document.getElementById('levels').value);
+            gravity = 1.0; // Ajuste da gravidade
+
+            // Definindo plataformas para cada fase
+            platforms = [];
+            if (level === 1) {
+                platforms.push(new Platform(100, canvas.height - 100, 200, 20));
+                platforms.push(new Platform(350, canvas.height - 200, 200, 20));
+                platforms.push(new Platform(600, canvas.height - 300, 200, 20));
+                platforms.push(new Platform(canvas.width - 150, canvas.height - 100, 150, 20)); // Plataforma de fim de fase
+            } else if (level === 2) {
+                platforms.push(new Platform(50, canvas.height - 150, 250, 20));
+                platforms.push(new Platform(350, canvas.height - 250, 200, 20));
+                platforms.push(new Platform(600, canvas.height - 350, 250, 20));
+                platforms.push(new Platform(900, canvas.height - 450, 200, 20));
+                platforms.push(new Platform(canvas.width - 150, canvas.height - 150, 150, 20)); // Plataforma de fim de fase
+            } else if (level === 3) {
+                platforms.push(new Platform(0, canvas.height - 100, 300, 20));
+                platforms.push(new Platform(350, canvas.height - 200, 250, 20));
+                platforms.push(new Platform(700, canvas.height - 300, 200, 20));
+                platforms.push(new Platform(950, canvas.height - 400, 250, 20));
+                platforms.push(new Platform(1250, canvas.height - 500, 200, 20));
+                iceWall = new IceWall(canvas.width - 100, canvas.height - 500, 100, 500); // Barreira de gelo
+            }
+
+            gameInterval = setInterval(updateGame, 20);
+        }
+
+        function resetGame() {
+            clearInterval(gameInterval);
+            player = new Player();
+            keys = {};
+        }
+
+        function updateGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            player.update();
+
+            for (let platform of platforms) {
+                platform.draw();
+            }
+
+            if (iceWall) {
+                iceWall.draw();
+            }
+        }
+
+        window.addEventListener('keydown', function (e) {
+            keys[e.code] = true;
+
+            if (e.code === 'Space') {
+                player.jump();
+            }
+        });
+
+        window.addEventListener('keyup', function (e) {
+            keys[e.code] = false;
+        });
+
+        function handleMovement() {
+            if (keys['ArrowLeft']) {
+                player.dx = -player.speed;
+            } else if (keys['ArrowRight']) {
+                player.dx = player.speed;
+            } else {
+                player.dx = 0;
+            }
+        }
+
+        function gameLoop() {
+            handleMovement();
+            updateGame();
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.addEventListener('resize', function () {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            startGame(); // Redefine o jogo para se ajustar ao novo tamanho da tela
+        });
+
+        startGame();
+        gameLoop(); // Inicia o loop principal do jogo
+    </script>
+</body>
+</html>
